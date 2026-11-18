@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.auth import router as auth_router
-from app.core.config import API_PREFIX, get_settings
+from app.core.config import API_PREFIX, PROJECT_ROOT, get_settings
 from app.core.errors import register_error_handlers
 from app.core.responses import ErrorResponse
 from app.db.base import Base
@@ -40,3 +42,12 @@ if settings.cors_origins:
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+frontend_directory = PROJECT_ROOT / "frontend"
+if frontend_directory.is_dir():
+
+    @app.get("/", include_in_schema=False)
+    def frontend_home() -> RedirectResponse:
+        return RedirectResponse("/frontend/")
+
+    app.mount("/frontend", StaticFiles(directory=frontend_directory, html=True), name="frontend")

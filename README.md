@@ -83,6 +83,19 @@ BaoDay/
 
 Các cấu hình dự kiến gồm `APP_ENV`, `DATABASE_URL`, `JWT_SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB`, `ALLOWED_UPLOAD_TYPES` và `CORS_ORIGINS`. Tạo `.env` từ `.env.example` khi chạy cục bộ; không commit `.env`, khóa bí mật hoặc tệp tải lên. Upload chỉ nhận JPEG, PNG và WebP; giới hạn mặc định 5 MB, có thể điều chỉnh bằng biến môi trường.
 
+## Chạy giao diện
+
+Chuẩn bị Python và biến môi trường theo [hướng dẫn cài đặt](docs/api-contract.md#chạy-phần-xác-thực-trên-windows). Từ thư mục gốc của dự án, chạy:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --reload --reload-dir backend
+```
+
+Mở [Báo Đây](http://127.0.0.1:8000/) hoặc [Swagger UI](http://127.0.0.1:8000/docs).
+
+- **Bản demo** dùng bài và ảnh minh họa. Sau khi đăng nhập, bạn có thể tạo, sửa, xuất bản, tìm kiếm và xóa bài, đồng thời tải ảnh lên và xóa ảnh. Dữ liệu demo lưu trên trình duyệt.
+- **API thật** gọi các endpoint trong [hợp đồng API](docs/api-contract.md). Đăng ký và đăng nhập luôn dùng backend. Đọc tin, quản lý bài và tệp cần các router tương ứng.
+
 ## Repository
 
 [github.com/Lethanh05/BaoDay](https://github.com/Lethanh05/BaoDay)
