@@ -7,17 +7,19 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.articles import router as articles_router
+from app.api.v1.articles import manage_router
 from app.core.config import API_PREFIX, PROJECT_ROOT, get_settings
 from app.core.errors import register_error_handlers
 from app.core.responses import ErrorResponse
 from app.db.base import Base
 from app.db.session import engine
+import app.models.article  # noqa: F401
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Auth router imports User. Import the article and file models before this
-    # call when their modules are integrated.
+    # Models must be imported before create_all().
     Base.metadata.create_all(engine)
     try:
         yield
@@ -34,6 +36,8 @@ app = FastAPI(
 )
 register_error_handlers(app)
 app.include_router(auth_router, prefix=API_PREFIX)
+app.include_router(articles_router, prefix=API_PREFIX)
+app.include_router(manage_router, prefix=API_PREFIX)
 
 if settings.cors_origins:
     app.add_middleware(
