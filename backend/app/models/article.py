@@ -5,6 +5,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.models.file import file_url
 
 
 class ArticleStatus(StrEnum):
@@ -34,6 +35,7 @@ class Article(Base):
         index=True,
     )
     cover_file_id: Mapped[int | None] = mapped_column(
+        ForeignKey("files.id", ondelete="RESTRICT"),
         index=True,
         default=None,
     )
@@ -50,3 +52,7 @@ class Article(Base):
         DateTime(timezone=True),
         default=None,
     )
+
+    @property
+    def cover_url(self) -> str | None:
+        return file_url(self.cover_file_id) if self.cover_file_id is not None else None

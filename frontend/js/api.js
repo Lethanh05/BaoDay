@@ -46,16 +46,16 @@ export function query(parameters) {
 export const remote = {
   publicList(filters) { return api("/articles" + query(filters)); },
   async detail(id) { return (await api("/articles/" + id)).data; },
-  managed(filters, user, token) { return api("/manage/articles" + query(filters), { token }); },
-  async save(id, body, user, token) {
+  managed(filters, token) { return api("/manage/articles" + query(filters), { token }); },
+  async save(id, body, token) {
     const path = id == null ? "/articles" : "/articles/" + id;
     return (await api(path, { method: id == null ? "POST" : "PATCH", body, token })).data;
   },
-  remove(id, user, token) { return api("/articles/" + id, { method: "DELETE", token }); },
-  async upload(file, user, token) {
+  remove(id, token) { return api("/articles/" + id, { method: "DELETE", token }); },
+  async upload(file, token) {
     const body = new FormData();
     body.append("file", file);
     return (await api("/files", { method: "POST", body, token })).data;
   },
-  deleteFile(id, user, token) { return api("/files/" + id, { method: "DELETE", token }); },
+  deleteFile(id, token) { return api("/files/" + id, { method: "DELETE", token }); },
 };

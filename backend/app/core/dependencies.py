@@ -39,7 +39,15 @@ def get_current_user(
     return user
 
 
+def get_optional_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: DbSession,
+) -> User | None:
+    return get_current_user(credentials, db) if credentials is not None else None
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 
 
 def require_roles(*roles: Role) -> Callable[..., User]:

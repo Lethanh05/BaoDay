@@ -2,12 +2,16 @@ from datetime import UTC, datetime
 from math import ceil
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
+from app.db.search import search_key
 from app.models.article import Article, ArticleStatus
+from app.models.file import StoredFile
 from app.models.user import Role, User
 from app.schemas.article import CreateArticleRequest, UpdateArticleRequest
+from app.services.files import require_cover_file
 
 
 def ensure_can_manage(article: Article, user: User) -> None:
@@ -18,6 +22,18 @@ def ensure_can_manage(article: Article, user: User) -> None:
     raise ApiError(403, "FORBIDDEN", "Bạn không có quyền quản lý bài viết này.")
 
 
+def _commit_article(db: Session, article: Article) -> None:
+    cover_file_id = article.cover_file_id
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if cover_file_id is not None and db.get(StoredFile, cover_file_id) is None:
+            raise ApiError(404, "FILE_NOT_FOUND", "Không tìm thấy ảnh.") from exc
+        raise
+    db.refresh(article)
+
+
 def create_article(
     db: Session,
     data: CreateArticleRequest,
@@ -25,6 +41,8 @@ def create_article(
 ) -> Article:
     now = datetime.now(UTC)
     status = ArticleStatus(data.status)
+    if data.cover_file_id is not None:
+        require_cover_file(db, data.cover_file_id, user)
     article = Article(
         title=data.title,
         summary=data.summary,
@@ -37,8 +55,7 @@ def create_article(
         published_at=now if status == ArticleStatus.PUBLISHED else None,
     )
     db.add(article)
-    db.commit()
-    db.refresh(article)
+    _commit_article(db, article)
     return article
 
 
@@ -54,6 +71,8 @@ def update_article(
     ensure_can_manage(article, user)
 
     sent_fields = data.model_fields_set
+    if "cover_file_id" in sent_fields and data.cover_file_id is not None:
+        require_cover_file(db, data.cover_file_id, user)
     for field_name in ("title", "summary", "content", "cover_file_id"):
         if field_name in sent_fields:
             setattr(article, field_name, getattr(data, field_name))
@@ -67,9 +86,9 @@ def update_article(
             article.published_at = None
         article.status = new_status
 
-    article.updated_at = datetime.now(UTC)
-    db.commit()
-    db.refresh(article)
+    if sent_fields:
+        article.updated_at = datetime.now(UTC)
+        _commit_article(db, article)
     return article
 
 
@@ -135,10 +154,19 @@ def list_managed_articles(
         filters.append(Article.author_id == user.id)
 
     if q and q.strip():
-        keyword = f"%{q.strip()}%"
-        filters.append(
-            Article.title.ilike(keyword) | Article.summary.ilike(keyword)
-        )
+        keyword = q.strip()
+        if db.bind.dialect.name == "sqlite":
+            normalized = search_key(keyword)
+            if normalized:
+                filters.append(
+                    (func.instr(func.baoday_search_key(Article.title), normalized) > 0)
+                    | (func.instr(func.baoday_search_key(Article.summary), normalized) > 0)
+                )
+        else:
+            filters.append(
+                Article.title.icontains(keyword, autoescape=True)
+                | Article.summary.icontains(keyword, autoescape=True)
+            )
 
     if status:
         filters.append(Article.status == ArticleStatus(status))

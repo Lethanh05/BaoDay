@@ -19,7 +19,7 @@ manage_router = APIRouter(prefix="/manage/articles", tags=["Quản lý bài vi�
 
 Page = Annotated[int, Query(ge=1)]
 PageSize = Annotated[int, Query(ge=1, le=100)]
-ArticleId = Annotated[int, Path(gt=0)]
+ArticleId = Annotated[int, Path(gt=0, le=2**63 - 1)]
 ManageUser = Annotated[
     User,
     Depends(require_roles(Role.EDITOR, Role.ADMIN)),
@@ -98,7 +98,7 @@ def managed_article_list(
     order: Literal["asc", "desc"] = "desc",
     page: Page = 1,
     page_size: PageSize = 10,
-) -> PageResponse[ArticleSummaryRead]:
+) -> PageResponse[ArticleRead]:
     records, total, total_pages = articles.list_managed_articles(
         db=db,
         user=user,
@@ -110,7 +110,7 @@ def managed_article_list(
         page_size=page_size,
     )
     return PageResponse(
-        data=[ArticleSummaryRead.model_validate(record) for record in records],
+        data=[ArticleRead.model_validate(record) for record in records],
         meta=PaginationMeta(
             page=page,
             page_size=page_size,

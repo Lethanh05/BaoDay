@@ -29,7 +29,7 @@ Editor quản lý bài viết của mình. Admin có thể quản lý mọi bài
 - Giao tiếp: REST API với JSON; upload tệp qua `multipart/form-data`.
 - Xác thực: JWT Bearer token.
 
-## API mục tiêu
+## API
 
 | Phương thức | Endpoint | Truy cập | Mục đích |
 |---|---|---|---|
@@ -42,7 +42,8 @@ Editor quản lý bài viết của mình. Admin có thể quản lý mọi bài
 | DELETE | `/api/v1/articles/{article_id}` | Tác giả, admin | Xóa bài viết. |
 | GET | `/api/v1/manage/articles` | Editor, admin | Tìm kiếm, lọc, sắp xếp và phân trang bài viết được phép quản lý. |
 | POST | `/api/v1/files` | Editor, admin | Tải ảnh lên bằng trường multipart `file`. |
-| DELETE | `/api/v1/files/{file_id}` | Chủ sở hữu, admin | Xóa tệp đã tải lên. |
+| GET | `/api/v1/files/{file_id}/content` | Công khai khi là bìa bài đã xuất bản | Đọc ảnh. Chủ tệp và admin có thể xem ảnh riêng. |
+| DELETE | `/api/v1/files/{file_id}` | Chủ sở hữu, admin | Xóa ảnh chưa được dùng làm bìa. |
 
 Danh sách quản lý nhận các tham số `q`, `status`, `sort_by`, `order`, `page`, `page_size`. `sort_by` nhận `title`, `created_at` hoặc `updated_at`; `order` nhận `asc` hoặc `desc`.
 
@@ -54,7 +55,7 @@ Danh sách quản lý nhận các tham số `q`, `status`, `sort_by`, `order`, `
 
 Tên trường JSON dùng `snake_case`; thời gian dùng ISO 8601. Response thành công dùng `data`; response danh sách có thêm `meta` gồm `page`, `page_size`, `total`, `total_pages`. Response lỗi dùng `error.code` và `error.message`.
 
-## Cấu trúc mục tiêu
+## Cấu trúc dự án
 
 ```text
 BaoDay/
@@ -85,16 +86,16 @@ Các cấu hình dự kiến gồm `APP_ENV`, `DATABASE_URL`, `JWT_SECRET_KEY`, 
 
 ## Chạy giao diện
 
-Chuẩn bị Python và biến môi trường theo [hướng dẫn cài đặt](docs/api-contract.md#chạy-phần-xác-thực-trên-windows). Từ thư mục gốc của dự án, chạy:
+Chuẩn bị Python và biến môi trường theo [hướng dẫn cài đặt](docs/api-contract.md#chạy-dự-án-trên-windows). Từ thư mục gốc của dự án, chạy:
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --reload --reload-dir backend
 ```
 
 Mở [Báo Đây](http://127.0.0.1:8000/) hoặc [Swagger UI](http://127.0.0.1:8000/docs).
 
-- **Bản demo** dùng bài và ảnh minh họa. Sau khi đăng nhập, bạn có thể tạo, sửa, xuất bản, tìm kiếm và xóa bài, đồng thời tải ảnh lên và xóa ảnh. Dữ liệu demo lưu trên trình duyệt.
-- **API thật** gọi các endpoint trong [hợp đồng API](docs/api-contract.md). Đăng ký và đăng nhập luôn dùng backend. Đọc tin, quản lý bài và tệp cần các router tương ứng.
+Đăng nhập rồi vào **Quản lý bài viết**. Tải ảnh lên, dùng ID ảnh để gắn bìa, lưu bản nháp rồi xuất bản. Mở **Trang nhất** để xem bài đã xuất bản. Gỡ ảnh bìa hoặc xóa bài trước khi xóa ảnh. Các thao tác sử dụng dữ liệu từ backend.
 
 ## Repository
 

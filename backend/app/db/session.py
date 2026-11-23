@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
+from app.db.search import search_key
 
 engine = create_engine(get_settings().database_url)
 if engine.dialect.name == "sqlite" and engine.url.database in (None, ":memory:"):
@@ -24,6 +25,7 @@ if engine.dialect.name == "sqlite":
             cursor.execute("PRAGMA foreign_keys = ON")
         finally:
             cursor.close()
+        connection.create_function("baoday_search_key", 1, search_key, deterministic=True)
 
 
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)

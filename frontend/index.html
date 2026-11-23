@@ -18,9 +18,6 @@
     <div class="shell">
       <div class="utility">
         <time id="today"></time>
-        <label class="mode-label"><span class="mode-dot"></span><span class="sr-only">Nguồn dữ liệu</span>
-          <select id="mode"><option value="demo">Bản demo</option><option value="api">API thật</option></select>
-        </label>
       </div>
       <div class="masthead-main">
         <a class="wordmark" href="#trang-nhat" aria-label="Báo Đây, Trang nhất">Báo Đây<span>.</span></a>
@@ -40,7 +37,6 @@
     <section id="home-view">
       <div class="heading home-heading">
         <div><span class="eyebrow"><span class="tick"></span> BẢN TIN BÁO ĐÂY</span><h1>Trang nhất</h1></div>
-        <span id="data-label" class="data-label">Ấn bản minh họa</span>
       </div>
       <div id="home-status" class="notice" role="status" hidden></div>
       <div id="lead"></div>
@@ -70,7 +66,7 @@
           <section class="panel">
             <h2>Danh sách bài viết</h2>
             <form id="filters" class="filters">
-              <label class="filter-search">Tìm kiếm<input type="search" name="q" placeholder="Tiêu đề hoặc tóm tắt"></label>
+              <label class="filter-search">Tìm kiếm<input type="search" name="q" maxlength="200" placeholder="Tiêu đề hoặc tóm tắt"></label>
               <label>Trạng thái<select name="status"><option value="">Tất cả</option><option value="draft">Bản nháp</option><option value="published">Đã xuất bản</option></select></label>
               <label>Sắp xếp<select name="sort_by"><option value="created_at">Ngày tạo</option><option value="updated_at">Ngày sửa</option><option value="title">Tiêu đề</option></select></label>
               <label>Thứ tự<select name="order"><option value="desc">Giảm dần</option><option value="asc">Tăng dần</option></select></label>
@@ -81,9 +77,9 @@
             <div class="pagination" id="manage-pages" hidden></div>
           </section>
           <section class="panel media-panel">
-            <div class="panel-heading"><div><h2>Ảnh bài viết</h2><p class="muted" id="media-help"></p></div><button type="button" id="open-upload" class="button button-outline">Tải ảnh lên</button></div>
+            <div class="panel-heading"><div><h2>Ảnh bài viết</h2><p class="muted">Dùng ID để gắn ảnh bìa hoặc xóa ảnh đã tải.</p></div><button type="button" id="open-upload" class="button button-outline">Tải ảnh lên</button></div>
             <div id="media-list" class="media-grid"></div>
-            <form id="delete-file-form" class="delete-by-id" hidden>
+            <form id="delete-file-form" class="delete-by-id">
               <label>Xóa ảnh theo ID<input name="id" type="number" min="1" step="1" required placeholder="ID tệp"></label>
               <button class="button button-outline danger">Xóa ảnh</button>
             </form>
@@ -114,10 +110,9 @@
   <dialog id="editor-dialog" class="editor-dialog" aria-labelledby="editor-title">
     <div class="dialog-head"><h2 id="editor-title">Soạn bài</h2><button class="close" type="button" data-close aria-label="Đóng">×</button></div>
     <form id="editor-form" class="stack">
-      <label>Tiêu đề<input name="title" required></label>
-      <label>Tóm tắt<textarea name="summary" rows="2"></textarea></label>
+      <label>Tiêu đề<input name="title" maxlength="200" required></label>
+      <label>Tóm tắt<textarea name="summary" rows="2" maxlength="500"></textarea></label>
       <label>Nội dung<textarea name="content" rows="8" required></textarea></label>
-      <p class="muted" id="content-help" hidden>API danh sách không trả nội dung bản nháp. Để trống nếu muốn giữ nội dung hiện có.</p>
       <div class="form-row">
         <label>ID ảnh bìa<input name="cover_file_id" type="number" min="1" step="1" list="cover-options" placeholder="Không có ảnh"><datalist id="cover-options"></datalist></label>
         <label>Trạng thái<select name="status"><option value="draft">Bản nháp</option><option value="published">Xuất bản</option></select></label>
@@ -131,7 +126,7 @@
     <div class="dialog-head"><h2 id="upload-title">Tải ảnh lên</h2><button class="close" type="button" data-close aria-label="Đóng">×</button></div>
     <form id="upload-form" class="stack">
       <label>Chọn ảnh<input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
-      <p class="muted">JPEG, PNG hoặc WebP. Tối đa 5 MB trong chế độ demo.</p>
+      <p class="muted">JPEG, PNG hoặc WebP. Giới hạn mặc định 5 MB.</p>
       <p class="form-error" id="upload-error" role="alert" hidden></p>
       <button class="button button-primary">Tải ảnh lên</button>
     </form>

@@ -1,5 +1,4 @@
 import { api, remote } from "./api.js";
-import { demo } from "./demo.js";
 
 const $ = (id) => document.getElementById(id);
 const pages = { home: $("home-view"), article: $("article-view"), manage: $("manage-view") };
@@ -20,14 +19,13 @@ function saveStorage(key, value) {
   } catch { /* A private session can still use in-memory state. */ }
 }
 
-let mode = readStorage("baoday.source") === "api" ? "api" : "demo";
 let token = readStorage("baoday.token");
 let user = null;
 let authMode = "login";
 let homePage = 1;
 let managePage = 1;
 let filters = { q: "", status: "", sort_by: "created_at", order: "desc" };
-let editing = null;
+let editingId = null;
 let revision = 0;
 let toastTimeout;
 const objectUrls = new Set();
@@ -79,7 +77,6 @@ function route() {
 }
 
 function newsLink(id) { return "#bai-viet/" + id; }
-function repo() { return mode === "demo" ? demo : remote; }
 function canEdit() { return ["editor", "admin"].includes(user?.role); }
 
 function imageSource(value, blob) {
@@ -99,7 +96,7 @@ function imageSource(value, blob) {
 
 function imageBlock(item, { tag = "div", className = "", href, eager = false } = {}) {
   const block = element(tag, { href, className: "media " + className });
-  const url = imageSource(item.cover_url ?? item.url, item.cover_blob ?? item.blob);
+  const url = imageSource(item.cover_url, item.blob);
   if (href) block.setAttribute("aria-label", item.title || "Đọc bài");
   if (url) {
     const img = element("img");
@@ -117,7 +114,7 @@ function imageBlock(item, { tag = "div", className = "", href, eager = false } =
 function leadArticle(article) {
   const href = newsLink(article.id);
   const copy = element("div", { className: "lead-copy" },
-    element("span", { className: "kicker", text: article.topic || "Tin nổi bật" }),
+    element("span", { className: "kicker", text: "Tin nổi bật" }),
     element("h2", {}, element("a", { href, text: article.title })),
     article.summary && element("p", { text: article.summary }),
     element("a", { className: "lead-link", href, text: "Đọc bài viết →" }),
@@ -131,7 +128,7 @@ function newsCard(article) {
   const href = newsLink(article.id);
   return element("article", { className: "card" },
     imageBlock(article, { tag: "a", href }),
-    element("span", { className: "kicker", text: article.topic || dateLabel(article.published_at) || "Tin mới" }),
+    element("span", { className: "kicker", text: dateLabel(article.published_at) || "Tin mới" }),
     element("h3", {}, element("a", { href, text: article.title })),
     article.summary && element("p", { text: article.summary }),
   );
@@ -154,10 +151,9 @@ async function showHome(run) {
   $("news-grid").replaceChildren();
   $("more-news").hidden = true;
   $("home-pages").hidden = true;
-  $("data-label").textContent = mode === "demo" ? "Ấn bản minh họa" : "Tin đã xuất bản";
   textStatus(status, "Đang tải bản tin…");
   try {
-    const { data, meta } = await repo().publicList({ page: homePage, page_size: 10 });
+    const { data, meta } = await remote.publicList({ page: homePage, page_size: 10 });
     if (run !== revision) return;
     if (!data.length && homePage > 1 && meta?.total_pages > 0) {
       homePage = meta.total_pages;
@@ -182,9 +178,7 @@ async function showHome(run) {
     });
   } catch (error) {
     if (run !== revision) return;
-    textStatus(status, mode === "api" && error.status === 404
-      ? "API đọc tin chưa được tích hợp. Chọn Bản demo để xem bản tin mẫu."
-      : error.message);
+    textStatus(status, error.message);
   }
 }
 
@@ -198,14 +192,14 @@ async function showArticle(run, id) {
   }
   textStatus(status, "Đang tải bài viết…");
   try {
-    const article = await repo().detail(id);
+    const article = await remote.detail(id);
     if (run !== revision) return;
     textStatus(status);
     body.append(
-      element("span", { className: "kicker", text: [article.topic, dateLabel(article.published_at)].filter(Boolean).join(" · ") }),
+      element("span", { className: "kicker", text: dateLabel(article.published_at) }),
       element("h1", { text: article.title }),
       article.summary ? element("p", { className: "summary", text: article.summary }) : "",
-      article.cover_url || article.cover_blob ? imageBlock(article, { eager: true }) : "",
+      article.cover_url ? imageBlock(article, { eager: true }) : "",
       element("div", { className: "story-content", text: article.content }),
     );
   } catch (error) {
@@ -232,11 +226,6 @@ function rememberMedia(id, items) {
   saveStorage(mediaKey(id), JSON.stringify(items));
 }
 
-function listMedia(source = mode, account = user) {
-  if (!account) return [];
-  return source === "demo" ? demo.media(account) : knownMedia(account.id);
-}
-
 function articleRow(article) {
   const status = article.status === "published";
   const name = article.status === "published"
@@ -259,7 +248,7 @@ async function loadManageArticles(run) {
   $("manage-pages").hidden = true;
   textStatus(status, "Đang tải bài viết…");
   try {
-    const { data, meta } = await repo().managed({ ...filters, page: managePage, page_size: 10 }, user, token);
+    const { data, meta } = await remote.managed({ ...filters, page: managePage, page_size: 10 }, token);
     if (run !== revision) return;
     if (!data.length && managePage > 1) {
       managePage = Math.max(1, meta?.total_pages || 1);
@@ -273,31 +262,22 @@ async function loadManageArticles(run) {
   } catch (error) {
     if (run !== revision) return;
     if (expireSession(error)) return;
-    textStatus(status, mode === "api" && error.status === 404
-      ? "API quản lý bài viết chưa được tích hợp. Bạn có thể thử các thao tác trong Bản demo."
-      : error.message);
+    textStatus(status, error.message);
   }
 }
 
-async function loadManageMedia(run) {
+function loadManageMedia(run) {
   const node = $("media-list");
-  const source = mode;
-  const access = token;
+  const files = knownMedia(user.id);
   node.replaceChildren();
-  try {
-    const files = await listMedia();
-    if (run !== revision) return;
-    if (!files.length) node.append(element("p", { className: "muted", text: "Chưa có ảnh." }));
-    for (const file of files) {
-      const preview = imageBlock(source === "api" ? {} : file);
-      node.append(element("div", { className: "media-item" }, preview,
-        element("small", { text: "#" + file.id + " · " + file.original_name }),
-        button("Xóa", (event) => actionOnce(event.currentTarget, () => deleteFile(file.id)), "button button-outline danger"),
-      ));
-      if (source === "api") loadPrivateImage(preview, file, access, run);
-    }
-  } catch (error) {
-    if (run === revision) node.append(element("p", { className: "muted", text: error.message }));
+  if (!files.length) node.append(element("p", { className: "muted", text: "Chưa tải ảnh trong phiên này." }));
+  for (const file of files) {
+    const preview = imageBlock({});
+    node.append(element("div", { className: "media-item" }, preview,
+      element("small", { text: "#" + file.id + " · " + file.original_name }),
+      button("Xóa", (event) => actionOnce(event.currentTarget, () => deleteFile(file.id)), "button button-outline danger"),
+    ));
+    void loadPrivateImage(preview, file, token, run);
   }
 }
 
@@ -327,12 +307,8 @@ function showManage(run) {
     ? "Tài khoản hiện tại không có quyền biên tập."
     : "Đăng nhập để viết bài, quản lý bài viết và tải ảnh.";
   if (!editable) return;
-  $("media-help").textContent = mode === "demo"
-    ? "Ảnh demo lưu trên trình duyệt này. Dùng ID để gắn ảnh bìa."
-    : "Danh sách hiển thị ảnh vừa tải từ phiên này. Bạn cũng có thể xóa ảnh theo ID.";
-  $("delete-file-form").hidden = mode !== "api";
   void loadManageArticles(run);
-  void loadManageMedia(run);
+  loadManageMedia(run);
 }
 
 function render() {
@@ -409,25 +385,14 @@ async function actionOnce(control, action, errorNode) {
   }
 }
 
-async function openEditor(article = null) {
-  const source = mode;
-  const account = user;
-  let data = article;
-  if (source === "api" && article?.status === "published" && article.content == null) {
-    data = { ...article, ...await remote.detail(article.id) };
-  }
-  if (source !== mode || account !== user || !canEdit() || route().section !== "manage") return;
-  const media = await listMedia(source, account);
-  if (source !== mode || account !== user || route().section !== "manage") return;
-  const lacksContent = Boolean(data && data.content == null);
-  editing = { id: data?.id ?? null, lacksContent };
+function openEditor(article = null) {
+  if (!canEdit() || route().section !== "manage") return;
+  editingId = article?.id ?? null;
   editorForm.reset();
   for (const key of ["title", "summary", "content", "cover_file_id", "status"]) {
-    editorForm.elements[key].value = data?.[key] ?? (key === "status" ? "draft" : "");
+    editorForm.elements[key].value = article?.[key] ?? (key === "status" ? "draft" : "");
   }
-  editorForm.elements.content.required = !lacksContent;
-  $("content-help").hidden = !lacksContent;
-  $("cover-options").replaceChildren(...media.map((file) => {
+  $("cover-options").replaceChildren(...knownMedia(user.id).map((file) => {
     const item = element("option", { text: file.original_name });
     item.value = file.id;
     return item;
@@ -439,17 +404,16 @@ async function openEditor(article = null) {
 
 async function deleteArticle(article) {
   if (!window.confirm("Xóa bài viết “" + article.title + "”?")) return;
-  await repo().remove(article.id, user, token);
+  await remote.remove(article.id, token);
   toast("Đã xóa bài viết.");
   render();
 }
 
 async function deleteFile(id) {
   if (!id || !window.confirm("Xóa ảnh #" + id + "?")) return;
-  const source = mode;
-  const account = user;
-  await repo().deleteFile(id, account, token);
-  if (source === "api") rememberMedia(account.id, knownMedia(account.id).filter((file) => file.id !== id));
+  const { id: accountId } = user;
+  await remote.deleteFile(id, token);
+  rememberMedia(accountId, knownMedia(accountId).filter((file) => file.id !== id));
   $("delete-file-form").reset();
   toast("Đã xóa ảnh #" + id + ".");
   render();
@@ -500,13 +464,12 @@ editorForm.addEventListener("submit", (event) => {
   void actionOnce(editorForm.querySelector("button[type=submit], button:not([type])"), async () => {
     const content = values.content.trim();
     const title = values.title.trim();
-    if (!title || (!content && !editing.lacksContent)) throw new Error("Nhập tiêu đề và nội dung bài viết.");
+    if (!title || !content) throw new Error("Nhập tiêu đề và nội dung bài viết.");
     const coverId = values.cover_file_id ? idOf(values.cover_file_id) : null;
     if (values.cover_file_id && !coverId) throw new Error("ID ảnh bìa phải là số nguyên dương.");
-    const body = { title, summary: values.summary.trim() || null, status: values.status, cover_file_id: coverId };
-    if (content) body.content = content;
-    const creating = editing.id == null;
-    await repo().save(editing.id, body, user, token);
+    const body = { title, content, summary: values.summary.trim() || null, status: values.status, cover_file_id: coverId };
+    const creating = editingId == null;
+    await remote.save(editingId, body, token);
     if (creating) managePage = 1;
     $("editor-dialog").close();
     toast(creating ? "Đã tạo bài viết." : "Đã cập nhật bài viết.");
@@ -516,13 +479,12 @@ editorForm.addEventListener("submit", (event) => {
 
 uploadForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const source = mode;
-  const account = user;
+  const { id: accountId } = user;
   const file = uploadForm.elements.file.files[0];
   if (!file) return;
   void actionOnce(uploadForm.querySelector("button:not([type])"), async () => {
-    const image = await repo().upload(file, account, token);
-    if (source === "api") rememberMedia(account.id, [image, ...knownMedia(account.id)]);
+    const image = await remote.upload(file, token);
+    rememberMedia(accountId, [image, ...knownMedia(accountId)]);
     $("upload-dialog").close();
     toast("Đã tải ảnh lên. ID #" + image.id + ".");
     render();
@@ -542,16 +504,6 @@ $("filters").addEventListener("submit", (event) => {
   filters.q = filters.q.trim();
   managePage = 1;
   render();
-});
-
-$("mode").value = mode;
-$("mode").addEventListener("change", (event) => {
-  mode = event.target.value;
-  saveStorage("baoday.source", mode);
-  homePage = 1;
-  managePage = 1;
-  if (route().section === "article") location.hash = "trang-nhat";
-  else render();
 });
 
 const today = new Date();

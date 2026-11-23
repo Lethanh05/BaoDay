@@ -20,7 +20,7 @@ ArticleSummary = (
 )
 ArticleContent = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 ArticleStatus = Literal["draft", "published"]
-PositiveId = Annotated[int, Field(gt=0)]
+PositiveId = Annotated[int, Field(gt=0, le=2**63 - 1)]
 
 
 class CreateArticleRequest(BaseModel):

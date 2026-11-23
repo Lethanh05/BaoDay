@@ -1,8 +1,6 @@
 # Hợp đồng API Báo Đây
 
-- **Đã triển khai:** đăng ký, đăng nhập, lấy thông tin tài khoản từ token.
-- **Dùng để tích hợp:** bài viết và ảnh bìa. Thạnh phụ trách nền tảng, xác thực và tệp. Hòa phụ trách bài viết. Hai người cập nhật hợp đồng này khi thống nhất thay đổi.
-- **Chờ Hòa rà soát:** URL đọc ảnh và mối liên kết giữa bài viết và ảnh bìa.
+API dùng chung cho giao diện, quản lý tài khoản, bài viết và ảnh bìa.
 
 ## Quy ước chung
 
@@ -49,10 +47,10 @@ Mã lỗi xác thực: `EMAIL_EXISTS` (409), `INVALID_CREDENTIALS` (401), `UNAUT
 | DELETE `/articles/{article_id}` | Tác giả, admin | Trả ID bài đã xóa. |
 | GET `/manage/articles` | Editor, admin | Tìm kiếm, lọc, sắp xếp và phân trang. Editor chỉ thấy bài của mình. |
 
-- **Article:** `id`, `title`, `summary`, `content`, `status`, `author_id`, `cover_file_id`, `cover_url`, `created_at`, `updated_at`, `published_at`. Danh sách có thể bỏ `content`; chi tiết luôn trả `content`.
+- **Article:** `id`, `title`, `summary`, `content`, `status`, `author_id`, `cover_file_id`, `cover_url`, `created_at`, `updated_at`, `published_at`. Danh sách công khai không trả `content`. API chi tiết và danh sách quản lý trả `content`, kể cả bài nháp.
 - **Tạo bài:** bắt buộc `title` và `content` là chuỗi không rỗng. `summary` và `cover_file_id` mặc định `null`. `status` nhận `draft` hoặc `published`, mặc định `draft`. Backend tự đặt ID, tác giả và các mốc thời gian.
 - **Sửa bài:** nhận cùng nhóm trường có thể ghi. Gửi `cover_file_id: null` để gỡ ảnh bìa. Khi chuyển sang `published`, backend đặt `published_at`; khi đưa về `draft`, đặt lại `published_at` thành `null`.
-- **Tìm kiếm và phân trang:** `q` tìm trong tiêu đề và tóm tắt; `status` lọc theo trạng thái; `sort_by` nhận `title`, `created_at` hoặc `updated_at` (mặc định `created_at`); `order` nhận `asc` hoặc `desc` (mặc định `desc`). `page` mặc định 1, `page_size` mặc định 10 và tối đa 100. Dùng ID để ổn định thứ tự khi trùng khóa sắp xếp.
+- **Tìm kiếm và phân trang:** `q` tìm theo chuỗi trong tiêu đề và tóm tắt. Với SQLite, tìm kiếm không phân biệt dấu và hoa thường. `status` lọc theo trạng thái. `sort_by` nhận `title`, `created_at` hoặc `updated_at` (mặc định `created_at`); `order` nhận `asc` hoặc `desc` (mặc định `desc`). `page` mặc định 1, `page_size` mặc định 10 và tối đa 100. Dùng ID để ổn định thứ tự khi trùng khóa sắp xếp.
 
 ## Tệp và ảnh bìa
 
@@ -60,11 +58,11 @@ Mã lỗi xác thực: `EMAIL_EXISTS` (409), `INVALID_CREDENTIALS` (401), `UNAUT
 | --- | --- | --- |
 | POST `/files` | Editor, admin | Multipart với trường `file`. Nhận JPEG, PNG hoặc WebP, mặc định tối đa 5 MB. Trả File. |
 | DELETE `/files/{file_id}` | Chủ tệp, admin | Trả ID tệp đã xóa. Nếu có bài đang dùng làm bìa, trả `409 FILE_IN_USE`. |
-| GET `/files/{file_id}/content` *(đề xuất)* | Xem quy tắc bên dưới | Trả dữ liệu ảnh với `Content-Type` tương ứng. |
+| GET `/files/{file_id}/content` | Công khai khi gắn với bài đã xuất bản. Các trường hợp khác chỉ chủ tệp hoặc admin. | Trả dữ liệu ảnh với `Content-Type` tương ứng. |
 
 **File:** `id`, `original_name`, `url`, `mime_type`, `size_bytes`, `owner_id`, `created_at`. `storage_path` chỉ dùng nội bộ.
 
-**Đề xuất tích hợp:** `Article.cover_file_id` tham chiếu `files.id` và cho phép `null`. Editor chỉ gắn ảnh mình sở hữu; admin có thể gắn ảnh bất kỳ. Thạnh cung cấp hàm kiểm tra quyền gắn ảnh khi triển khai module tệp. `cover_url` lấy từ `File.url`, là đường dẫn tương đối so với origin của API, hoặc `null` khi không có ảnh bìa. URL đọc được công khai khi ảnh gắn với ít nhất một bài `published`. Ảnh khác chỉ chủ tệp hoặc admin xem được bằng token. Mọi bài đang tham chiếu ảnh, kể cả bài nháp, đều chặn xóa ảnh.
+`Article.cover_file_id` tham chiếu `files.id` và cho phép `null`. Editor chỉ gắn ảnh mình sở hữu và admin có thể gắn ảnh bất kỳ. Gắn ID ảnh không tồn tại trả `404 FILE_NOT_FOUND`. `cover_url` lấy từ `File.url`, là đường dẫn tương đối so với origin của API, hoặc `null` khi không có ảnh bìa. URL đọc được công khai khi ảnh gắn với ít nhất một bài `published`. Ảnh khác chỉ chủ tệp hoặc admin xem được bằng token. Mọi bài đang tham chiếu ảnh, kể cả bài nháp, đều chặn xóa ảnh.
 
 ## Đầu mối tích hợp Backend
 
@@ -80,7 +78,7 @@ Mã lỗi xác thực: `EMAIL_EXISTS` (409), `INVALID_CREDENTIALS` (401), `UNAUT
 
 Router chỉ khai báo các đường dẫn tương đối như `/articles` và `/manage/articles`. `main.py` gắn tiền tố `/api/v1` khi đăng ký router. Hòa xuất `router` từ `app/api/v1/articles.py`. Thạnh tích hợp router, nạp model và thực hiện phần tệp theo hợp đồng đã chốt.
 
-## Chạy phần xác thực trên Windows
+## Chạy dự án trên Windows
 
 Chạy từ thư mục gốc dự án với Python 3.11 trở lên.
 
@@ -91,13 +89,13 @@ if (!(Test-Path .env)) { Copy-Item .env.example .env }
 .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Thay giá trị mẫu của `JWT_SECRET_KEY` trong `.env` bằng chuỗi vừa tạo. Khóa phải dài ít nhất 32 byte. Cơ sở dữ liệu SQLite cục bộ được tạo ở `backend/baoday.db` khi khởi động.
+Thay giá trị mẫu của `JWT_SECRET_KEY` trong `.env` bằng chuỗi vừa tạo. Khóa phải dài ít nhất 32 byte. SQLite cục bộ được tạo ở `backend/baoday.db` khi khởi động. Với SQLite từ bản API bài viết cũ, lần khởi động đầu sẽ thêm khóa ngoại cho ảnh bìa và đặt các ID ảnh không hợp lệ thành `null` trong khi giữ nội dung bài.
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --reload
 ```
 
-Mở [Swagger UI](http://127.0.0.1:8000/docs), gọi `/auth/register` rồi `/auth/login`. Dán giá trị `access_token` vào nút **Authorize** và gọi `/auth/me`.
+Mở [Báo Đây](http://127.0.0.1:8000/) hoặc [Swagger UI](http://127.0.0.1:8000/docs). Trong Swagger, gọi `/auth/register` rồi `/auth/login`. Dán `access_token` vào nút **Authorize** để gọi API quản lý.
 
 Để tạo admin, chạy từ gốc dự án. Lệnh yêu cầu nhập mật khẩu trong terminal.
 
